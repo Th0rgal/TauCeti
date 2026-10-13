@@ -70,7 +70,7 @@ of finite perimeter on open subsets of a finite-dimensional real inner product s
   `TauCeti.relativePerimeter_le_liminf`: core API for relative and whole-space perimeter.
 -/
 
-public section
+@[expose] public section
 
 open Filter MeasureTheory Set TopologicalSpace TestFunction LineDeriv
 open scoped ENNReal NNReal InnerProductSpace Distributions Topology symmDiff
