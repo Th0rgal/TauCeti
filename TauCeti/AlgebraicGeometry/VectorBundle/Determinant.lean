@@ -5,7 +5,8 @@ Authors: The Tau Ceti contributors
 -/
 module
 
-public import TauCeti.AlgebraicGeometry.VectorBundle.ExteriorPower.Basic
+public import TauCeti.AlgebraicGeometry.LineBundle.Pullback
+public import TauCeti.AlgebraicGeometry.VectorBundle.ExteriorPower.Pullback
 public import TauCeti.AlgebraicGeometry.VectorBundle.FixedRank
 
 /-!
@@ -14,15 +15,20 @@ public import TauCeti.AlgebraicGeometry.VectorBundle.FixedRank
 If `E` is a finite locally free sheaf on a scheme `X` of constant rank `r`, its top exterior power
 `det E = ⋀ʳ E` has rank `r.choose r = 1` at every point, so it is an invertible sheaf. This file
 packages the top exterior power as the determinant functor
-`FiniteLocallyFreeSheaf.determinant X r : FixedRank X r ⥤ InvertibleSheaf X`, and computes it in
-the basic cases: the determinant of the free sheaf of rank `r` is the trivial line bundle, the
-determinant of a sheaf of constant rank one is the sheaf itself, and every sheaf of rank zero has
-trivial determinant.
+`FiniteLocallyFreeSheaf.determinant X r : FixedRank X r ⥤ InvertibleSheaf X`, proves that it
+commutes with pullback along morphisms of schemes (`pullbackDeterminantIso`,
+`pullbackDeterminantNatIso`), and computes it in the basic cases: the determinant of the free sheaf
+of rank `r` is the trivial line bundle, the determinant of a sheaf of constant rank one is the
+sheaf itself, and every sheaf of rank zero has trivial determinant.
 
 ## Main declarations
 
 * `FiniteLocallyFreeSheaf.determinant X r`: the determinant `E ↦ ⋀ʳ E` of finite locally free
   sheaves of constant rank `r`, with values in invertible sheaves;
+* `FiniteLocallyFreeSheaf.pullbackDeterminantIso`: the component isomorphism comparing the
+  pullback of the determinant with the determinant of the pullback;
+* `FiniteLocallyFreeSheaf.pullbackDeterminantNatIso`: the natural isomorphism
+  `determinant Y r ⋙ InvertibleSheaf.pullback f ≅ FixedRank.pullback f ⋙ determinant X r`;
 * `FiniteLocallyFreeSheaf.determinantFreeIso`: the determinant of the free sheaf of rank `r` is
   the trivial invertible sheaf;
 * `FiniteLocallyFreeSheaf.determinantOneIso`: on sheaves of constant rank one, the determinant is
@@ -83,6 +89,96 @@ theorem determinant_map_hom {r : ℕ} {E F : FixedRank X r} (φ : E ⟶ F) :
   -- Both `eqToHom`s are identities, since `determinant` is a lift of the exterior power; they only
   -- record `determinant_obj_obj`, which is not a syntactic equality outside this file.
   ((Category.id_comp _).trans (Category.comp_id _)).symm
+
+variable {Y : Scheme.{u}} (f : X ⟶ Y) (r : ℕ)
+
+/-- Pulling back the determinant of a finite locally free sheaf of constant rank `r` is
+canonically isomorphic to the determinant of its pullback. -/
+def pullbackDeterminantIso (E : FixedRank Y r) :
+    (InvertibleSheaf.pullback f).obj ((determinant Y r).obj E) ≅
+      (determinant X r).obj ((FixedRank.pullback f).obj E) :=
+  ObjectProperty.isoMk _
+    (eqToIso (by rw [InvertibleSheaf.pullback_obj_obj, determinant_obj_obj]; rfl) ≪≫
+      asIso ((Scheme.Modules.pullbackExteriorPowerComparison f r).app E.obj.obj) ≪≫
+      eqToIso (by rw [determinant_obj_obj, FixedRank.pullback_obj_obj, pullback_obj_obj]; rfl))
+
+/-- On underlying sheaves of modules, `pullbackDeterminantIso` is the top exterior power pullback
+comparison `Scheme.Modules.pullbackExteriorPowerComparison`. -/
+@[simp]
+theorem pullbackDeterminantIso_hom_hom (E : FixedRank Y r) :
+    (pullbackDeterminantIso f r E).hom.hom =
+      eqToHom (by rw [InvertibleSheaf.pullback_obj_obj, determinant_obj_obj]; rfl) ≫
+        (Scheme.Modules.pullbackExteriorPowerComparison f r).app E.obj.obj ≫
+        eqToHom
+          (by rw [determinant_obj_obj, FixedRank.pullback_obj_obj, pullback_obj_obj]; rfl) := by
+  simp [pullbackDeterminantIso]
+
+private theorem determinant_naturality_aux {C D : Type*} [Category* C] [Category* D]
+    (F₁ : C ⥤ C) (F₂ : D ⥤ D) (P : C ⥤ D) (α : F₁ ⋙ P ⟶ P ⋙ F₂)
+    {E F : C} (g : E ⟶ F)
+    {DE DF : C} (hDE : DE = F₁.obj E) (hDF : DF = F₁.obj F)
+    {PE PF : D} (hPE : PE = P.obj E) (hPF : PF = P.obj F)
+    {RPE RPF : D} (hRPE : RPE = PE) (hRPF : RPF = PF)
+    {PDE PDF DRPE DRPF : D}
+    (hPDE : PDE = (F₁ ⋙ P).obj E) (hPDF : PDF = (F₁ ⋙ P).obj F)
+    (hDRPE : (P ⋙ F₂).obj E = DRPE) (hDRPF : (P ⋙ F₂).obj F = DRPF)
+    (hPDE' : PDE = P.obj DE) (hPDF' : PDF = P.obj DF)
+    (hDRPE' : DRPE = F₂.obj RPE) (hDRPF' : DRPF = F₂.obj RPF) :
+    (eqToHom hPDE' ≫ P.map (eqToHom hDE ≫ F₁.map g ≫ eqToHom hDF.symm) ≫ eqToHom hPDF'.symm) ≫
+        (eqToHom hPDF ≫ α.app F ≫ eqToHom hDRPF) =
+      (eqToHom hPDE ≫ α.app E ≫ eqToHom hDRPE) ≫
+        (eqToHom hDRPE' ≫
+          F₂.map (eqToHom hRPE ≫ (eqToHom hPE ≫ P.map g ≫ eqToHom hPF.symm) ≫ eqToHom hRPF.symm) ≫
+          eqToHom hDRPF'.symm) := by
+  subst hDE hDF hRPE hRPF hPE hPF hPDE hPDF hDRPE hDRPF
+  simpa using α.naturality g
+
+/-- The determinant pullback comparison is natural in morphisms of fixed-rank sheaves. -/
+@[reassoc]
+theorem pullbackDeterminantIso_naturality {E F : FixedRank Y r} (g : E ⟶ F) :
+    (InvertibleSheaf.pullback f).map ((determinant Y r).map g) ≫
+        (pullbackDeterminantIso f r F).hom =
+      (pullbackDeterminantIso f r E).hom ≫
+        (determinant X r).map ((FixedRank.pullback f).map g) := by
+  have hEq {A B : FiniteLocallyFreeSheaf X} (h : A = B) :
+      (eqToHom h).hom = eqToHom (congrArg ObjectProperty.FullSubcategory.obj h) := by
+    subst h
+    rfl
+  apply ObjectProperty.hom_ext
+  simp only [ObjectProperty.FullSubcategory.comp_hom, InvertibleSheaf.pullback_map,
+    determinant_map_hom, pullbackDeterminantIso_hom_hom, FixedRank.pullback_map_hom,
+    pullback_map_hom, hEq]
+  exact determinant_naturality_aux (SheafOfModules.exteriorPower Y.sheaf r)
+    (SheafOfModules.exteriorPower X.sheaf r) (Scheme.Modules.pullback f)
+    (Scheme.Modules.pullbackExteriorPowerComparison f r) g.hom.hom
+    (determinant_obj_obj E) (determinant_obj_obj F)
+    (pullback_obj_obj f E.obj) (pullback_obj_obj f F.obj)
+    (congrArg ObjectProperty.FullSubcategory.obj (FixedRank.pullback_obj_obj f E))
+    (congrArg ObjectProperty.FullSubcategory.obj (FixedRank.pullback_obj_obj f F))
+    _ _ _ _
+    (InvertibleSheaf.pullback_obj_obj f ((determinant Y r).obj E))
+    (InvertibleSheaf.pullback_obj_obj f ((determinant Y r).obj F))
+    (determinant_obj_obj ((FixedRank.pullback f).obj E))
+    (determinant_obj_obj ((FixedRank.pullback f).obj F))
+
+/-- Pulling back determinants of fixed-rank finite locally free sheaves is naturally isomorphic to
+taking determinants of their pullbacks. -/
+def pullbackDeterminantNatIso :
+    determinant Y r ⋙ InvertibleSheaf.pullback f ≅ FixedRank.pullback f ⋙ determinant X r :=
+  NatIso.ofComponents (pullbackDeterminantIso f r)
+    fun g ↦ pullbackDeterminantIso_naturality f r g
+
+/-- The forward component of `pullbackDeterminantNatIso` is `pullbackDeterminantIso`. -/
+@[simp]
+theorem pullbackDeterminantNatIso_hom_app (E : FixedRank Y r) :
+    (pullbackDeterminantNatIso f r).hom.app E = (pullbackDeterminantIso f r E).hom :=
+  (rfl)
+
+/-- The inverse component of `pullbackDeterminantNatIso` is `pullbackDeterminantIso`. -/
+@[simp]
+theorem pullbackDeterminantNatIso_inv_app (E : FixedRank Y r) :
+    (pullbackDeterminantNatIso f r).inv.app E = (pullbackDeterminantIso f r E).inv :=
+  (rfl)
 
 variable (X) in
 /-- The determinant of the free sheaf of rank `r` is the trivial invertible sheaf: the top
