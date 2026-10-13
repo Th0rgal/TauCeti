@@ -8,6 +8,8 @@ module
 public import TauCeti.NumberTheory.NumberField.Global.Ideles.Norm.Compact
 public import TauCeti.NumberTheory.NumberField.Global.Ideles.Ray.Subgroup
 public import Mathlib.NumberTheory.NumberField.Units.DirichletTheorem
+
+import Mathlib.Topology.Algebra.Module.FiniteDimension
 import Mathlib.Topology.ContinuousMap.Basic
 
 /-!
@@ -19,7 +21,7 @@ This gives a continuous additive homomorphism from the trivial ray subgroup (wit
 additive group structure) to `logSpace K / unitLattice K`.
 Its restriction to norm-one classes is surjective. Consequently compactness of the norm-one
 idele class group implies compactness of the logarithmic unit quotient, the cocompactness
-part of Dirichlet's unit theorem.
+part of Dirichlet's unit theorem, and hence full-lattice spanning over `ℝ`.
 
 We use Mathlib's `NumberField.Units.dirichletUnitTheorem.logSpace` and
 `NumberField.Units.unitLattice`, with the distinguished infinite place omitted.
@@ -27,6 +29,29 @@ On everywhere-integral norm-one ideles the omitted coordinate is minus the sum o
 others, so these coordinates describe the usual trace-zero hyperplane. Compactness of the
 norm-one idele class group in this library was itself proved using Dirichlet's theorem;
 this is an agreement result, rather than an independent proof of that theorem.
+
+## Main definitions
+
+* `TauCeti.GlobalNumberFields.ideleLog`: the archimedean logarithmic map on ideles.
+* `TauCeti.GlobalNumberFields.unitLogQuotient`: the archimedean logarithmic map modulo global
+  units on the trivial ray subgroup.
+
+## Main results
+
+* `TauCeti.GlobalNumberFields.raySubgroup_one_eq_ker_toClassGroup`: the trivial ray subgroup is
+  the kernel of `NumberField.IdeleClassGroup.toClassGroup`.
+* `TauCeti.GlobalNumberFields.ideleLog_eq_zero_iff_of_ideleNorm_eq_one`: on an everywhere-integral
+  idele of norm one, `ideleLog` vanishes exactly when all infinite coordinates have normalized
+  absolute value `1`.
+* `TauCeti.GlobalNumberFields.unitLogQuotient_normOne_surjective`: `unitLogQuotient` is surjective
+  on norm-one classes in the trivial ray subgroup.
+* `TauCeti.GlobalNumberFields.compactSpace_logSpace_quotient_unitLattice`: the quotient of
+  `logSpace K` by the unit lattice is compact.
+* `TauCeti.GlobalNumberFields.span_eq_top_of_compactSpace_quotient` and
+  `TauCeti.GlobalNumberFields.isZLattice_of_compactSpace_quotient`: a discrete cocompact
+  `ℤ`-submodule of a finite-dimensional real normed space spans the space over `ℝ` and is a full
+  `ℤ`-lattice, recovering `IsZLattice ℝ (unitLattice K)` from
+  `compactSpace_logSpace_quotient_unitLattice`.
 
 ## References
 
@@ -39,8 +64,8 @@ noncomputable section
 
 open IsDedekindDomain NumberField NumberField.InfinitePlace NumberField.Units
 open NumberField.Units.dirichletUnitTheorem
-open Topology
-open scoped NumberField
+open Topology Submodule
+open scoped NumberField NNReal
 
 namespace TauCeti.GlobalNumberFields
 
@@ -241,5 +266,116 @@ instance compactSpace_logSpace_quotient_unitLattice :
     exact ⟨⟨c, hc⟩, hlog⟩
   exact hs.compactSpace
     (continuous_unitLogQuotient.comp (continuous_ofMul.comp continuous_subtype_val))
+
+/-- An idele lies in the congruence subgroup of the trivial modulus exactly when its finite
+component is an everywhere-integral unit. -/
+theorem mem_ideleCongruenceSubgroup_one_iff_toFiniteIdele_mem_integralUnits
+    {x : IdeleGroup (𝓞 K) K} :
+    x ∈ ideleCongruenceSubgroup (Modulus.one K) ↔
+      IdeleGroup.toFiniteIdele (𝓞 K) K x ∈ FiniteAdeleRing.integralUnits (𝓞 K) K := by
+  rw [mem_ideleCongruenceSubgroup_one_iff, ← toFractionalIdeal_toFiniteIdele_eq_one_iff,
+    ← MonoidHom.mem_ker, FiniteAdeleRing.ker_toFractionalIdeal]
+
+variable (K) in
+/-- **The ray subgroup of the trivial modulus is the kernel of the class-group homomorphism** on
+the idele class group: an idele class has trivial ideal class exactly when it is represented by an
+everywhere-integral idele. -/
+theorem raySubgroup_one_eq_ker_toClassGroup :
+    raySubgroup (Modulus.one K) = (NumberField.IdeleClassGroup.toClassGroup (𝓞 K) K).ker := by
+  ext c
+  constructor
+  · intro hc
+    obtain ⟨x, hx, rfl⟩ := mem_raySubgroup_iff.mp hc
+    rw [QuotientGroup.mk'_apply, NumberField.IdeleClassGroup.mk_mem_ker_toClassGroup_iff]
+    exact Subgroup.mem_sup_left
+      (mem_ideleCongruenceSubgroup_one_iff_toFiniteIdele_mem_integralUnits.mp hx)
+  · intro hc
+    obtain ⟨x, rfl⟩ := QuotientGroup.mk_surjective c
+    obtain ⟨f, hf, _, ⟨a, rfl⟩, hfa⟩ :=
+      Subgroup.mem_sup.mp (NumberField.IdeleClassGroup.mk_mem_ker_toClassGroup_iff.mp hc)
+    refine mem_raySubgroup_iff.mpr ⟨x * (IdeleGroup.unitEmbedding (𝓞 K) K a)⁻¹, ?_, ?_⟩
+    · rw [mem_ideleCongruenceSubgroup_one_iff_toFiniteIdele_mem_integralUnits,
+        map_mul, map_inv, IdeleGroup.toFiniteIdele_unitEmbedding, ← hfa, mul_inv_cancel_right]
+      exact hf
+    · rw [QuotientGroup.mk'_apply]
+      exact QuotientGroup.mk_mul_of_mem x ⟨a⁻¹, map_inv _ a⟩
+
+/-- On an everywhere-integral idele of norm one, the logarithmic map vanishes exactly when every
+infinite coordinate has normalized absolute value `1`. -/
+theorem ideleLog_eq_zero_iff_of_ideleNorm_eq_one {x : IdeleGroup (𝓞 K) K}
+    (hx : x ∈ ideleCongruenceSubgroup (Modulus.one K)) (hnorm : ideleNorm x = 1) :
+    ideleLog (Additive.ofMul x) = 0 ↔
+      ∀ w : InfinitePlace K, completionNormalizedAbsValue w (w.ideleInfiniteCoord x) = 1 := by
+  classical
+  constructor
+  · intro hlog w
+    have hne (v : {v : InfinitePlace K // v ≠ w₀}) :
+        completionNormalizedAbsValue v.1 (v.1.ideleInfiniteCoord x) = 1 := by
+      have hv : Real.log (completionNormalizedAbsValue v.1 (v.1.ideleInfiniteCoord x)) = 0 :=
+        (ideleLog_apply x v).symm.trans (congrFun hlog v)
+      have hpos : 0 < completionNormalizedAbsValue v.1 (v.1.ideleInfiniteCoord x) :=
+        lt_of_le_of_ne (by simp [completionNormalizedAbsValue_apply])
+          (Ne.symm ((map_ne_zero _).mpr (v.1.ideleInfiniteCoord x).ne_zero))
+      rw [← Real.exp_log hpos, hv, Real.exp_zero]
+    by_cases hw : w = w₀
+    · subst hw
+      have hfin (v : HeightOneSpectrum (𝓞 K)) :
+          ‖(v.ideleFiniteCoord x : v.adicCompletion K)‖ = 1 := by
+        rw [FinitePlace.norm_def, mem_ideleCongruenceSubgroup_one_iff.mp hx v,
+          map_one, NNReal.coe_one]
+      have hprod : ∏ w, completionNormalizedAbsValue w (w.ideleInfiniteCoord x) = 1 := by
+        have := coe_ideleNorm x
+        rw [hnorm, Units.val_one, NNReal.coe_one, finprod_congr hfin, finprod_one, mul_one] at this
+        exact this.symm
+      rw [Fintype.prod_eq_mul_prod_subtype_ne _ w₀,
+        Finset.prod_eq_one (fun v _ ↦ hne v), mul_one] at hprod
+      exact hprod
+    · exact hne ⟨w, hw⟩
+  · intro h
+    ext w
+    rw [ideleLog_apply, h w.1, Real.log_one, Pi.zero_apply]
+
+/-- **A cocompact `ℤ`-submodule of a finite-dimensional real normed space spans the space over
+`ℝ`.**  Any proper `ℝ`-subspace is the kernel of a nonzero continuous linear functional, which
+would descend to a continuous surjection from the compact quotient onto `ℝ`. -/
+theorem span_eq_top_of_compactSpace_quotient {E : Type*} [NormedAddCommGroup E]
+    [NormedSpace ℝ E] [FiniteDimensional ℝ E] (L : Submodule ℤ E)
+    [CompactSpace (E ⧸ L.toAddSubgroup)] :
+    Submodule.span ℝ (L : Set E) = ⊤ := by
+  by_contra hne
+  set W : Submodule ℝ E := Submodule.span ℝ (L : Set E)
+  have : Nontrivial (E ⧸ W) := Submodule.Quotient.nontrivial_iff.mpr hne
+  let B := Module.Basis.ofVectorSpace ℝ (E ⧸ W)
+  obtain ⟨i⟩ : Nonempty (Module.Basis.ofVectorSpaceIndex ℝ (E ⧸ W)) := B.index_nonempty
+  let φ : E →ₗ[ℝ] ℝ := (B.coord i).comp W.mkQ
+  have hker : L.toAddSubgroup ≤ φ.toAddMonoidHom.ker := by
+    intro x hx
+    change (B.coord i) (W.mkQ x) = 0
+    rw [Submodule.mkQ_apply, (Submodule.Quotient.mk_eq_zero W).mpr (Submodule.subset_span hx),
+      map_zero]
+  let ψ : E ⧸ L.toAddSubgroup →+ ℝ := QuotientAddGroup.lift L.toAddSubgroup φ.toAddMonoidHom hker
+  have hcont : Continuous ψ :=
+    (QuotientAddGroup.isQuotientMap_mk L.toAddSubgroup).continuous_iff.mpr
+      φ.continuous_of_finiteDimensional
+  have hsurj : Function.Surjective ψ := by
+    intro r
+    obtain ⟨x, hx⟩ := Submodule.mkQ_surjective W (r • B i)
+    refine ⟨QuotientAddGroup.mk x, ?_⟩
+    change (B.coord i) (W.mkQ x) = r
+    rw [hx, map_smul, Module.Basis.coord_apply, Module.Basis.repr_self,
+      Finsupp.single_eq_same, smul_eq_mul, mul_one]
+  have : CompactSpace ℝ := hsurj.compactSpace hcont
+  obtain ⟨M, hM⟩ := (isCompact_univ : IsCompact (Set.univ : Set ℝ)).bddAbove
+  linarith [hM (Set.mem_univ (M + 1))]
+
+/-- **A discrete cocompact `ℤ`-submodule of a finite-dimensional real normed space is a full
+`ℤ`-lattice.**  Combined with `compactSpace_logSpace_quotient_unitLattice`, this recovers the
+spanning part of Dirichlet's unit theorem (`IsZLattice ℝ (unitLattice K)`) from the compactness
+of the norm-one idele class group. -/
+theorem isZLattice_of_compactSpace_quotient {E : Type*} [NormedAddCommGroup E]
+    [NormedSpace ℝ E] [FiniteDimensional ℝ E] (L : Submodule ℤ E) [DiscreteTopology L]
+    [CompactSpace (E ⧸ L.toAddSubgroup)] :
+    IsZLattice ℝ L :=
+  ⟨span_eq_top_of_compactSpace_quotient L⟩
 
 end TauCeti.GlobalNumberFields
