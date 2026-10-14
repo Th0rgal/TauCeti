@@ -360,6 +360,7 @@ lemma sheafSymmetricAlgebraHom_comp
     ((sheafifyModules X).map_comp _ _)
 
 /-- The degree-`1` piece of `sheafSymmetricAlgebraData M` is canonically isomorphic to `M`. -/
+@[expose]
 def sheafSymmetricAlgebraDegreeOneIso (M : X.Modules) :
     (sheafSymmetricAlgebraData M).X 1 ≅ M :=
   (SheafOfModules.symmetricPowerIso (R := X.sheaf) 1 M).symm ≪≫

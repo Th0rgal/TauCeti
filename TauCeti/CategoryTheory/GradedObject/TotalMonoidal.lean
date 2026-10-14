@@ -499,6 +499,25 @@ def toCommMonHom {A B : GradedCommMonData C} (f : Hom A B) :
             rw [GradedObject.Monoidal.ι_tensorHom_assoc, ι_toGradedMul, ι_toGradedMul_assoc,
               f.mul_hom i j k h] } }
 
+@[reassoc]
+lemma total_mapCommMon_obj_one (A : GradedCommMonData C) :
+    MonObj.one (X := ((GradedObject.total ℕ C).mapCommMon.obj A.toCommMonObj).X) =
+      A.one₀ ≫ Sigma.ι A.X 0 := by
+  change gradedTotalεIso.hom ≫ (GradedObject.total ℕ C).map A.toGradedOne =
+    A.one₀ ≫ Sigma.ι A.X 0
+  dsimp [gradedTotalεIso, GradedObject.total]
+  rw [assoc, Sigma.ι_map, tensorUnit₀_inv_toGradedOne_zero_assoc]
+
+@[reassoc]
+lemma ι_total_mapCommMon_obj_mul (A : GradedCommMonData C) (i j : ℕ) :
+    (Sigma.ι A.X i ⊗ₘ Sigma.ι A.X j) ≫
+      MonObj.mul (X := ((GradedObject.total ℕ C).mapCommMon.obj A.toCommMonObj).X) =
+      A.mul i j (i + j) rfl ≫ Sigma.ι A.X (i + j) := by
+  change (Sigma.ι A.X i ⊗ₘ Sigma.ι A.X j) ≫
+    (gradedTotalμIso A.X A.X).hom ≫ (GradedObject.total ℕ C).map A.toGradedMul = _
+  dsimp [gradedTotalμIso, GradedObject.total]
+  rw [ι_tensorSigmaDesc_assoc, assoc, Sigma.ι_map, ι_toGradedMul_assoc]
+
 end ToCommMon
 
 end GradedCommMonData
